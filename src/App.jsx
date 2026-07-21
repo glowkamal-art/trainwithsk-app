@@ -146,6 +146,56 @@ function Modal({ title, onClose, children, width = 480 }) {
 }
 
 export default function App() {
+  const [session, setSession] = useState(undefined); // undefined = checking, null = logged out, object = logged in
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setSession(data.session));
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      setSession(newSession);
+    });
+    return () => listener.subscription.unsubscribe();
+  }, []);
+
+  if (session === undefined) {
+    return <p style={{ padding: 20, fontFamily: "Montserrat, sans-serif", color: "#999" }}>Checking login…</p>;
+  }
+  if (!session) {
+    return <Login />;
+  }
+  return <Dashboard onLogout={() => supabase.auth.signOut()} />;
+}
+
+function Login() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function handleLogin(e) {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) setError(error.message);
+    setLoading(false);
+  }
+
+  return (
+    <div style={{ fontFamily: "Montserrat, sans-serif", maxWidth: 360, margin: "80px auto", padding: "0 16px" }}>
+      <div style={{ textAlign: "center", marginBottom: 24, fontFamily: "Audiowide, sans-serif", fontSize: 24 }}>
+        TrainWith<span style={{ color: BLUE }}>_SK</span>
+      </div>
+      <form onSubmit={handleLogin}>
+        <Field label="Admin email"><input style={inputStyle} type="email" value={email} onChange={(e) => setEmail(e.target.value)} required /></Field>
+        <Field label="Password"><input style={inputStyle} type="password" value={password} onChange={(e) => setPassword(e.target.value)} required /></Field>
+        {error && <p style={{ color: "#b42318", fontSize: 13, marginBottom: 12 }}>{error}</p>}
+        <button type="submit" style={{ ...btn(BLUE), width: "100%" }} disabled={loading}>{loading ? "Signing in…" : "Log in"}</button>
+      </form>
+    </div>
+  );
+}
+
+function Dashboard({ onLogout }) {
   const [tab, setTab] = useState("regular");
   const [clients, setClients] = useState([]);
   const [ptClients, setPtClients] = useState([]);
@@ -285,7 +335,10 @@ export default function App() {
         <div style={{ fontFamily: "Audiowide, sans-serif", fontSize: 22 }}>
           TrainWith<span style={{ color: BLUE }}>_SK</span>
         </div>
-        <div style={{ fontSize: 13, color: "#666" }}>Admin dashboard</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ fontSize: 13, color: "#666" }}>Admin dashboard</div>
+          <button style={btnOutline} onClick={onLogout}>Log out</button>
+        </div>
       </div>
 
       {errorMsg && (
